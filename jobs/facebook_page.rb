@@ -7,7 +7,7 @@ require 'json'
 # Config
 # ------
 # the fb id or username of the page you’re planning to track
-facebook_graph_username = ENV['malmostartups'] || 'foobugs'
+facebook_graph_username = 'malmostartups'
 
 SCHEDULER.every '1m', :first_in => 0 do |job|
   http = Net::HTTP.new("graph.facebook.com")

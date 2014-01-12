@@ -8,7 +8,7 @@ client = Twitter::REST::Client.new do |config|
   config.oauth_token_secret = ENV['TWITTER_OAUTH_SECRET']
 end
 
-twitter_username = 'tilljoel'
+twitter_username = 'malmostartups'
 
 MAX_USER_ATTEMPTS = 10
 user_attempts = 0
