@@ -44,7 +44,11 @@ class ParsedPost
   end
 
   def post_likes
-    post['likes'].count
+    if post['likes']
+      post['likes'].count
+    else
+      0
+    end
   end
 
   def total_comments
