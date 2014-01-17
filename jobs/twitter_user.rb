@@ -1,3 +1,5 @@
+require 'twitter'
+
 #### Get your twitter keys & secrets:
 #### https://dev.twitter.com/docs/auth/tokens-devtwittercom
 
@@ -22,7 +24,7 @@ SCHEDULER.every '10m', :first_in => 0 do |job|
         following = tw_user.friends_count
 
         send_event('twitter_user_tweets', current: tweets)
-        send_event('twitter_user_followers', current: followers)
+        send_event('twitter_user_followers', value: followers)
         send_event('twitter_user_following', current: following)
 
     end
