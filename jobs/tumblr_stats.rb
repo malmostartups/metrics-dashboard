@@ -3,19 +3,27 @@ require 'tumblr_client'
 require 'awesome_print'
 # The url you are tracking
 Tumblr.configure do |config|
-  config.consumer_key = ENV["TUMBLR_CONSUMER_KEY"]
-  config.consumer_secret = ENV["TUMBLR_CONSUMER_SECRET"]
-  config.oauth_token = ENV["TUMBLR_OAUTH_TOKEN"]
-  config.oauth_token_secret = ENV["TUMBLR_OAUTH_TOKEN_SECRET"]
+  config.consumer_key = ENV['TUMBLR_CONSUMER_KEY']
+  config.consumer_secret = ENV['TUMBLR_CONSUMER_SECRET']
+  config.oauth_token = ENV['TUMBLR_OAUTH_TOKEN']
+  config.oauth_token_secret = ENV['TUMBLR_OAUTH_TOKEN_SECRET']
 end
 
-SCHEDULER.every '10m', :first_in => 0 do
+SCHEDULER.every '10m', first_in: 0 do
 
   client = Tumblr::Client.new
-  text_feed  = client.posts("malmostartups.tumblr.com",type: 'text',  :limit => 90)
-  photo_feed = client.posts("malmostartups.tumblr.com",type: 'photo', :limit => 90)
-  quote_feed = client.posts("malmostartups.tumblr.com",type: 'quote', :limit => 90)
-  link_feed  = client.posts("malmostartups.tumblr.com",type: 'link',  :limit => 90)
+  text_feed  = client.posts('malmostartups.tumblr.com',
+                            type: 'text',
+                            limit: 90)
+  photo_feed = client.posts('malmostartups.tumblr.com',
+                            type: 'photo',
+                            limit: 90)
+  quote_feed = client.posts('malmostartups.tumblr.com',
+                            type: 'quote',
+                            limit: 90)
+  link_feed  = client.posts('malmostartups.tumblr.com',
+                            type: 'link',
+                            limit: 90)
 
   text_parsed = ParsedTumblr.new(text_feed)
   photo_parsed = ParsedTumblr.new(photo_feed)
@@ -27,23 +35,23 @@ SCHEDULER.every '10m', :first_in => 0 do
           link_parsed.posts_per_day +
           quote_parsed.posts_per_day
 
-  posts_per_day = dates.group_by{|o| o}.map{|group, val| {x: group, y:val.count}}
+  grouped_dates = dates.group_by { |date| date }
+  posts_per_day = grouped_dates.map { |group, val| { x: group, y: val.count } }
 
   sorted = posts_per_day.sort { |x, y| x[:x] <=> y[:x] }
   sorted.pop
-  send_event('tumblr_posts_total', current: text_parsed.number_of_posts )
-  send_event('tumblr_posts_per_day', points: sorted )
-
+  send_event('tumblr_posts_total', current: text_parsed.number_of_posts)
+  send_event('tumblr_posts_per_day', points: sorted)
 end
-class ParsedTumblrPost
 
+class ParsedTumblrPost
   attr_accessor :post
   def initialize(post)
     @post = post
   end
 
   def date_string
-    post["date"]
+    post['date']
   end
 
   def date
@@ -51,11 +59,11 @@ class ParsedTumblrPost
   end
 
   def exact_date
-    DateTime.parse(date_string, "%Y-%m-%d %H:%M:%S GMT")
+    DateTime.parse(date_string, '%Y-%m-%d %H:%M:%S GMT')
   end
 
   def end_of_day(time)
-    time.to_date.to_time.to_i + 24*60*60
+    time.to_date.to_time.to_i + 24 * 60 * 60
   end
 end
 
@@ -67,19 +75,18 @@ class ParsedTumblr
   end
 
   def posts
-    feed["posts"]
+    feed['posts']
   end
 
   def number_of_posts
-    feed["total_posts"]
+    feed['total_posts']
   end
 
   def posts_per_day
-    dates = posts.map {|post|
+    dates = posts.map do|post|
       parsed_post = ParsedTumblrPost.new(post)
       parsed_post.date
-    }
+    end
     dates
   end
-
 end

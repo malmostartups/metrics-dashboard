@@ -5,26 +5,25 @@ require 'pry'
 
 groupid = '176366152561358'
 oauth_access_token = ENV['FACEBOOK_ACCESS_TOKEN']
-SCHEDULER.every '10m', :first_in => 0 do
+SCHEDULER.every '10m', first_in: 0 do
   @graph = Koala::Facebook::API.new(oauth_access_token)
 
-  profile = @graph.get_object(groupid)
-  feed = @graph.get_connections(groupid, "feed")
+  # profile = @graph.get_object(groupid)
+  feed = @graph.get_connections(groupid, 'feed')
 
   parsed = ParsedFeed.new(feed)
 
-  likes = parsed.likes_per_day
+  likes = parsed.likes_per_day_sorted
   likes.pop
-  comments =  parsed.comments_per_day
+  comments =  parsed.comments_per_day_sorted
   comments.pop
 
   send_event('facebook_likes_per_post', points: likes)
   send_event('facebook_comments_per_post', points: comments)
-  send_event('facebook_group_posts', current: feed.count )
+  send_event('facebook_group_posts', current: feed.count)
 end
 
 class ParsedPost
-
   attr_accessor :post
 
   def initialize(post)
@@ -32,20 +31,20 @@ class ParsedPost
   end
 
   def date
-    exact_date = DateTime.parse(date_string, "%Y-%m-%d%H:%M:%S")
+    exact_date = DateTime.parse(date_string, '%Y-%m-%d%H:%M:%S')
     end_of_day(exact_date)
   end
 
   def end_of_day(date)
-    date.to_date.to_time.to_i + 24*60*60
+    date.to_date.to_time.to_i + 24 * 60 * 60
   end
 
   def date_string
-    post["created_time"]
+    post['created_time']
   end
 
   def post_likes
-    post["likes"].count
+    post['likes'].count
   end
 
   def total_comments
@@ -53,23 +52,22 @@ class ParsedPost
   end
 
   def comments
-    if post && post["comments"]
-      post["comments"]["data"]
+    if post && post['comments']
+      post['comments']['data']
     else
       []
     end
   end
 
   def comment_likes
-    comments.inject(0) {|sum, comment|
-      sum + comment["like_count"].to_i
-    }
+    comments.reduce(0) do|sum, comment|
+      sum + comment['like_count'].to_i
+    end
   end
 
   def total_likes
     comment_likes + post_likes
   end
-
 end
 
 class ParsedFeed
@@ -80,34 +78,46 @@ class ParsedFeed
   end
 
   def likes_per_post
-    feed.map {|post|
+    feed.map do|post|
       parsed_post = ParsedPost.new(post)
       { day: parsed_post.date, count: parsed_post.total_likes }
-    }
+    end
+  end
+
+  def likes_grouped_by_day
+    likes_per_post.group_by { |post| post[:day] }
   end
 
   def likes_per_day
-    likes = likes_per_post.group_by {|post| post[:day] }
-    likes.map { |key,day|
-      count = day.inject(0) { |sum, post| sum + post[:count] }
-      {x: key, y:count }
-    }.sort { |x, y| x[:x] <=> y[:x] }
+    likes_grouped_by_day.map do |key, day|
+      count = day.reduce(0) { |sum, post| sum + post[:count] }
+      { x: key, y: count }
+    end
+  end
+
+  def likes_per_day_sorted
+    likes_per_day.sort { |x, y| x[:x] <=> y[:x] }
   end
 
   def comments_per_post
-    feed.map { |post|
+    feed.map do |post|
       parsed_post = ParsedPost.new(post)
       { day: parsed_post.date, count: parsed_post.total_comments }
-    }
+    end
+  end
+
+  def comments_grouped_by_day
+    comments_per_post.group_by { |post| post[:day] }
   end
 
   def comments_per_day
-    comments = comments_per_post.group_by {|post| post[:day] }
-    comments.map { |key,day|
-      count = day.inject(0) { |sum, post| sum + post[:count] }
-      {x: key, y:count }
-    }.sort { |x, y| x[:x] <=> y[:x] }
+    comments_grouped_by_day.map do |key, day|
+      count = day.reduce(0) { |sum, post| sum + post[:count] }
+      { x: key, y: count }
+    end
   end
 
+  def comments_per_day_sorted
+    comments_per_day.sort { |x, y| x[:x] <=> y[:x] }
+  end
 end
-

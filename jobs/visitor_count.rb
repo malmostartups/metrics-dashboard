@@ -1,49 +1,40 @@
 require 'google/api_client'
 require 'date'
 
-service_account_email = ENV['GOOGLE_SERVICE_ACCOUNT'] # Email of service account
-key_content = ENV['GOOGLE_KEY_CONTENT'] # File containing your private key
-key_secret = 'notasecret' # Password to unlock private key
-profileID = ENV['GOOGLE_ANALYTICS_PROFILE'] # Analytics profile ID.
+service_account_email = ENV['GOOGLE_SERVICE_ACCOUNT']
+key_content = ENV['GOOGLE_KEY_CONTENT']
+key_secret = 'notasecret'
+profile_id = ENV['GOOGLE_ANALYTICS_PROFILE']
 
-client = Google::APIClient.new(:application_name => 'Dashing Widget',
-  :application_version => '0.01')
+client = Google::APIClient.new(application_name: 'Dashing Widget',
+                               application_version: '0.01')
 
-#key = Google::APIClient::KeyUtils.load_from_pkcs12(key_file, key_secret)
 key = OpenSSL::PKey::RSA.new key_content, key_secret
 
 client.authorization = Signet::OAuth2::Client.new(
-  :token_credential_uri => 'https://accounts.google.com/o/oauth2/token',
-  :audience => 'https://accounts.google.com/o/oauth2/token',
-  :scope => 'https://www.googleapis.com/auth/analytics.readonly',
-  :issuer => service_account_email,
-  :signing_key => key)
+  token_credential_uri: 'https://accounts.google.com/o/oauth2/token',
+  audience: 'https://accounts.google.com/o/oauth2/token',
+  scope: 'https://www.googleapis.com/auth/analytics.readonly',
+  issuer: service_account_email,
+  signing_key: key)
 
-# Start the scheduler
-SCHEDULER.every '1m', :first_in => 0 do
+SCHEDULER.every '1m', first_in: 0 do
 
-  # Request a token for our service account
   client.authorization.fetch_access_token!
+  analytics = client.discovered_api('analytics', 'v3')
+  start_date = (DateTime.now - 7).strftime('%Y-%m-%d') # one week ago
+  end_date = DateTime.now.strftime('%Y-%m-%d')  # now
 
-  # Get the analytics API
-  analytics = client.discovered_api('analytics','v3')
-
-  # Start and end dates
-  startDate = (DateTime.now - 7).strftime("%Y-%m-%d") # one week ago
-  endDate = DateTime.now.strftime("%Y-%m-%d")  # now
-
-  # Execute the query
-  visitCount = client.execute(:api_method => analytics.data.ga.get, :parameters => {
-    'ids' => "ga:" + profileID,
-    'start-date' => startDate,
-    'end-date' => endDate,
-    'dimensions' => "ga:year,ga:month,ga:day",
-    'metrics' => "ga:visitors",
-    # 'sort' => "ga:month"
+  visit_count = client.execute(api_method: analytics.data.ga.get, parameters: {
+    'ids' => 'ga:' + profile_id,
+    'start-date' => start_date,
+    'end-date' => end_date,
+    'dimensions' => 'ga:year,ga:month,ga:day',
+    'metrics' => 'ga:visitors',
   })
 
   points = []
-  visitCount.data.rows.each do |data|
+  visit_count.data.rows.each do |data|
     year, month, day, visitors = *data.map(&:to_i)
 
     timestamp = Time.new(year, month, day).to_i
@@ -51,7 +42,5 @@ SCHEDULER.every '1m', :first_in => 0 do
   end
 
   points.pop
-  puts "points #{points}"
-  # Update the dashboard
-  send_event('visitor_count', { points: points })
+  send_event('visitor_count',  points: points)
 end
