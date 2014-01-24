@@ -41,6 +41,7 @@ SCHEDULER.every '1m', first_in: 0 do
     points << { x: timestamp, y: visitors }
   end
 
+  p points
   points.pop
   send_event('visitor_count',  points: points)
 end
